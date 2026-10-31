@@ -90,9 +90,34 @@ void executeKeyAction(String action) {
   }
 
   if (sendKey != null) {
-    final cmd = '\$wshell = New-Object -ComObject wscript.shell; \$wshell.SendKeys("$sendKey")';
+    final cmd = "\$wshell = New-Object -ComObject wscript.shell; \$activated = \$wshell.AppActivate('YouTube'); if (!\$activated) { \$wshell.AppActivate('Edge'); } \$wshell.SendKeys('$sendKey')";
     Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd]);
   }
+}
+
+void executeSearch(String query) async {
+  final q = query.trim();
+  if (q.isEmpty) return;
+  print('[SEARCH] Searching on current YouTube TV window: $q');
+
+  if (!Platform.isWindows) return;
+
+  final escaped = q.replaceAllMapped(RegExp(r'[+^%~(){}[\]]'), (m) => '{${m[0]}}');
+
+  final script = '''
+\$wshell = New-Object -ComObject wscript.shell;
+\$activated = \$wshell.AppActivate('YouTube');
+if (!\$activated) { \$activated = \$wshell.AppActivate('Edge'); }
+if (!\$activated) { \$activated = \$wshell.AppActivate('Chrome'); }
+Start-Sleep -Milliseconds 60;
+\$wshell.SendKeys('/');
+Start-Sleep -Milliseconds 120;
+\$wshell.SendKeys('$escaped');
+Start-Sleep -Milliseconds 80;
+\$wshell.SendKeys('{ENTER}');
+''';
+
+  await Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
 }
 
 void startUdpResponder(String localIp) async {
@@ -104,17 +129,23 @@ void startUdpResponder(String localIp) async {
       if (event == RawSocketEvent.read) {
         final datagram = socket.receive();
         if (datagram != null) {
-          final msg = utf8.decode(datagram.data).trim();
-          if (msg == 'SCRSHARE_DISCOVER') {
-            final reply = jsonEncode({
-              'type': 'SCRSHARE_HOST',
-              'name': Platform.localHostname,
-              'ip': localIp,
-              'port': httpPort,
-              'os': Platform.operatingSystem,
-            });
-            socket.send(utf8.encode(reply), datagram.address, datagram.port);
-          }
+          try {
+            final msg = utf8.decode(datagram.data, allowMalformed: true).trim();
+            if (msg == 'SCRSHARE_DISCOVER') {
+              final reply = jsonEncode({
+                'type': 'SCRSHARE_HOST',
+                'name': Platform.localHostname,
+                'ip': localIp,
+                'port': httpPort,
+                'os': Platform.operatingSystem,
+              });
+              socket.send(utf8.encode(reply), datagram.address, datagram.port);
+            } else if (msg.startsWith('Q:')) {
+              executeSearch(msg.substring(2));
+            } else if (msg.startsWith('K:')) {
+              executeKeyAction(msg.substring(2));
+            }
+          } catch (_) {}
         }
       }
     });
@@ -211,6 +242,30 @@ void main() async {
         ..headers.contentType = ContentType.json
         ..statusCode = HttpStatus.ok
         ..write(jsonEncode({'success': true, 'action': action}));
+    } else if (path == '/search') {
+      String query = '';
+      if (request.method == 'POST') {
+        final content = await utf8.decoder.bind(request).join();
+        if (content.isNotEmpty) {
+          try {
+            final body = jsonDecode(content);
+            if (body is Map) {
+              query = (body['q'] ?? body['query'] ?? '').toString();
+            }
+          } catch (_) {}
+        }
+      } else if (request.uri.queryParameters.containsKey('q')) {
+        query = request.uri.queryParameters['q']!;
+      } else if (request.uri.queryParameters.containsKey('query')) {
+        query = request.uri.queryParameters['query']!;
+      }
+
+      executeSearch(query);
+
+      request.response
+        ..headers.contentType = ContentType.json
+        ..statusCode = HttpStatus.ok
+        ..write(jsonEncode({'success': true, 'query': query}));
     } else {
       request.response
         ..statusCode = HttpStatus.notFound

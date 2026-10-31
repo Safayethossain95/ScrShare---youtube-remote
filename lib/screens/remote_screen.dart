@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../utils/fullscreen_helper.dart';
 import '../main.dart';
 import '../models/host_info.dart';
 import '../services/network_discovery_service.dart';
@@ -25,6 +27,7 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
   bool _isLaunching = false;
   bool _isScanning = false;
   bool _isPlaying = false;
+  bool _isMuted = false;
   bool _hasActiveMedia = false;
   double _currentPosition = 0.0;
   double _totalDuration = 0.0;
@@ -164,12 +167,18 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
 
   Future<void> _sendAction(String action) async {
     HapticFeedback.lightImpact();
+    if (action == 'fullscreen' && kIsWeb) {
+      toggleBrowserFullscreen();
+    }
     await _client.sendAction(action);
   }
 
   Future<void> _performSearch(String query) async {
     HapticFeedback.mediumImpact();
     if (_client.currentHost == null || !_client.isConnected) {
+      await _client.autoConnectLocalHost();
+    }
+    if (_client.currentHost == null) {
       _showCustomSnackBar(
         message: 'Please connect to a PC first',
         isSuccess: false,
@@ -190,13 +199,6 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
   }
 
   void _openSearchModal(bool isDark) {
-    if (_client.currentHost == null || !_client.isConnected) {
-      _showCustomSnackBar(
-        message: 'Please connect to a PC first',
-        isSuccess: false,
-      );
-      return;
-    }
 
     final surfaceColor = isDark ? AppTheme.darkSurface : AppTheme.lightSurface;
     final surfaceLightColor = isDark ? AppTheme.darkSurfaceLight : AppTheme.lightSurfaceLight;
@@ -1232,16 +1234,16 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildActionButton(
-                icon: Icons.volume_mute_rounded,
-                tooltip: 'Mute',
-                color: textSecondaryColor,
-                onPressed: () => _sendAction('mute'),
-              ),
-              _buildActionButton(
                 icon: Icons.volume_down_rounded,
                 tooltip: 'Volume -',
                 color: textSecondaryColor,
                 onPressed: () => _sendAction('volume_down'),
+              ),
+              _buildActionButton(
+                icon: Icons.volume_up_rounded,
+                tooltip: 'Volume +',
+                color: textSecondaryColor,
+                onPressed: () => _sendAction('volume_up'),
               ),
               Container(
                 decoration: const BoxDecoration(
@@ -1274,16 +1276,15 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
                 ),
               ),
               _buildActionButton(
-                icon: Icons.volume_up_rounded,
-                tooltip: 'Volume +',
-                color: textSecondaryColor,
-                onPressed: () => _sendAction('volume_up'),
-              ),
-              _buildActionButton(
-                icon: Icons.fullscreen_rounded,
-                tooltip: 'Fullscreen (F11)',
-                color: textSecondaryColor,
-                onPressed: () => _sendAction('fullscreen'),
+                icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_mute_rounded,
+                tooltip: _isMuted ? 'Unmute (M)' : 'Mute (M)',
+                color: _isMuted ? AppTheme.primary : textSecondaryColor,
+                onPressed: () {
+                  setState(() {
+                    _isMuted = !_isMuted;
+                  });
+                  _sendAction('mute');
+                },
               ),
             ],
           ),

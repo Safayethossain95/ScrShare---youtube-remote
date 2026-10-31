@@ -267,11 +267,11 @@ def execute_action(action):
                 user32.keybd_event(0x4B, 0, 2, 0)
                 return True
 
-            # 3. Fullscreen: YouTube player fullscreen shortcut is 'f' (0x46)
+            # 3. Fullscreen: Send F11 key (VK_F11 = 0x7A)
             if action_key == 'fullscreen':
                 ensure_browser_foreground()
-                user32.keybd_event(0x46, 0, 0, 0) # 'f' key
-                user32.keybd_event(0x46, 0, 2, 0)
+                user32.keybd_event(0x7A, 0, 0, 0) # VK_F11
+                user32.keybd_event(0x7A, 0, 2, 0)
                 return True
 
             ensure_browser_foreground()

@@ -198,6 +198,35 @@ class PCHostService {
             'success': result,
             'action': action,
           }));
+      } else if (path == '/search') {
+        String query = '';
+        if (request.method == 'POST') {
+          final content = await utf8.decoder.bind(request).join();
+          if (content.isNotEmpty) {
+            try {
+              final body = jsonDecode(content);
+              if (body is Map) {
+                query = (body['q'] ?? body['query'] ?? '').toString();
+              }
+            } catch (_) {}
+          }
+        } else if (request.uri.queryParameters.containsKey('q')) {
+          query = request.uri.queryParameters['q']!;
+        } else if (request.uri.queryParameters.containsKey('query')) {
+          query = request.uri.queryParameters['query']!;
+        }
+
+        final result = await executeHostSearch(query);
+        _addLog(
+          'Remote Search',
+          'From $clientIp -> Searched "$query"',
+          isSuccess: result,
+        );
+
+        request.response
+          ..headers.contentType = ContentType.json
+          ..statusCode = HttpStatus.ok
+          ..write(jsonEncode({'success': result, 'query': query}));
       } else if (path == '/mouse') {
         request.response
           ..headers.contentType = ContentType.json
@@ -242,18 +271,20 @@ class PCHostService {
     if (event == RawSocketEvent.read) {
       final datagram = _udpSocket?.receive();
       if (datagram != null) {
-        final message = utf8.decode(datagram.data).trim();
-        if (message == 'SCRSHARE_DISCOVER') {
-          final replyPayload = jsonEncode({
-            'type': 'SCRSHARE_HOST',
-            'name': Platform.localHostname,
-            'ip': _detectedIp ?? '127.0.0.1',
-            'port': _port,
-            'os': Platform.operatingSystem,
-          });
-          final replyBytes = utf8.encode(replyPayload);
-          _udpSocket?.send(replyBytes, datagram.address, datagram.port);
-        }
+        try {
+          final message = utf8.decode(datagram.data, allowMalformed: true).trim();
+          if (message == 'SCRSHARE_DISCOVER') {
+            final replyPayload = jsonEncode({
+              'type': 'SCRSHARE_HOST',
+              'name': Platform.localHostname,
+              'ip': _detectedIp ?? '127.0.0.1',
+              'port': _port,
+              'os': Platform.operatingSystem,
+            });
+            final replyBytes = utf8.encode(replyPayload);
+            _udpSocket?.send(replyBytes, datagram.address, datagram.port);
+          }
+        } catch (_) {}
       }
     }
   }
@@ -279,6 +310,35 @@ class PCHostService {
     }
   }
 
+  /// Searches query on the currently active YouTube TV window
+  Future<bool> executeHostSearch(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return true;
+    if (!Platform.isWindows) return true;
+
+    final escaped = q.replaceAllMapped(RegExp(r'[+^%~(){}[\]]'), (m) => '{${m[0]}}');
+
+    final script = '''
+\$wshell = New-Object -ComObject wscript.shell;
+\$activated = \$wshell.AppActivate('YouTube');
+if (!\$activated) { \$activated = \$wshell.AppActivate('Edge'); }
+if (!\$activated) { \$activated = \$wshell.AppActivate('Chrome'); }
+Start-Sleep -Milliseconds 60;
+\$wshell.SendKeys('/');
+Start-Sleep -Milliseconds 120;
+\$wshell.SendKeys('$escaped');
+Start-Sleep -Milliseconds 80;
+\$wshell.SendKeys('{ENTER}');
+''';
+
+    try {
+      final result = await Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Sends keyboard actions (F11 fullscreen, Space play/pause, Arrows, etc.)
   Future<bool> executeHostAction(String action) async {
     if (!Platform.isWindows) return true;
@@ -294,10 +354,12 @@ class PCHostService {
       case 'mute':
         keyToSend = 'm';
         break;
+      case 'volume_up':
       case 'navigate_up':
       case 'up':
         keyToSend = '{UP}';
         break;
+      case 'volume_down':
       case 'navigate_down':
       case 'down':
         keyToSend = '{DOWN}';
@@ -327,7 +389,7 @@ class PCHostService {
 
     try {
       // PowerShell send keys via WScript.Shell
-      final command = '\$wshell = New-Object -ComObject wscript.shell; \$wshell.SendKeys("$keyToSend")';
+      final command = "\$wshell = New-Object -ComObject wscript.shell; \$wshell.SendKeys('$keyToSend')";
       final result = await Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', command]);
       return result.exitCode == 0;
     } catch (_) {

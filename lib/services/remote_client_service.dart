@@ -96,9 +96,35 @@ class RemoteClientService {
         lastSeen: DateTime.now(),
       );
     }
-    // Do NOT auto-connect on startup - wait for user to scan and select device
-    _currentHost = null;
-    _setConnected(false);
+    if (kIsWeb) {
+      await autoConnectLocalHost();
+    } else {
+      _currentHost = null;
+      _setConnected(false);
+    }
+  }
+
+  /// Automatically connects to localhost (127.0.0.1:8080) if available
+  Future<bool> autoConnectLocalHost() async {
+    try {
+      final uri = Uri.parse('http://127.0.0.1:8080/status');
+      final res = await http.get(uri).timeout(const Duration(milliseconds: 700));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final ip = data['ip'] ?? '127.0.0.1';
+        final port = data['port'] ?? 8080;
+        final name = data['name'] ?? 'Local PC';
+        final host = HostInfo(
+          ip: kIsWeb ? '127.0.0.1' : ip.toString(),
+          port: port is int ? port : int.tryParse(port.toString()) ?? 8080,
+          name: name.toString(),
+          lastSeen: DateTime.now(),
+        );
+        selectHost(host);
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   void disconnect() {
@@ -178,7 +204,10 @@ class RemoteClientService {
 
   /// Search YouTube TV or open the search page with direct query sync
   Future<bool> searchYouTube(String query) async {
-    if (_currentHost == null) return false;
+    if (_currentHost == null) {
+      await autoConnectLocalHost();
+      if (_currentHost == null) return false;
+    }
 
     final trimmed = query.trim();
 
@@ -207,11 +236,7 @@ class RemoteClientService {
       }
     } catch (_) {}
 
-    // Fallback: direct browser launch to YouTube TV search URL
-    final targetUrl = trimmed.isEmpty
-        ? 'https://www.youtube.com/tv#/search'
-        : 'https://www.youtube.com/tv#/search?q=${Uri.encodeComponent(trimmed)}';
-    return launchUrl(url: targetUrl);
+    return false;
   }
 
   /// Get current media playback status (active, playing, position, duration, title)
