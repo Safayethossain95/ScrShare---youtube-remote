@@ -155,22 +155,23 @@ void startUdpResponder(String localIp) async {
 }
 
 void main() async {
-  final localIp = await getLocalIp();
+  try {
+    final localIp = await getLocalIp();
 
-  print('=' * 60);
-  print('  SCRSHARE - PC NATIVE RECEIVER (STANDALONE .EXE)');
-  print('=' * 60);
-  print('  PC Local Wi-Fi IP : http://$localIp:$httpPort');
-  print('  Hostname          : ${Platform.localHostname}');
-  print('  Discovery Port    : $udpPort (UDP)');
-  print('=' * 60);
-  print('  Status: READY and waiting for phone commands...');
-  print('  Press Ctrl+C to exit.');
-  print('=' * 60);
+    print('=' * 60);
+    print('  SCRSHARE - PC NATIVE RECEIVER (STANDALONE .EXE)');
+    print('=' * 60);
+    print('  PC Local Wi-Fi IP : http://$localIp:$httpPort');
+    print('  Hostname          : ${Platform.localHostname}');
+    print('  Discovery Port    : $udpPort (UDP)');
+    print('=' * 60);
+    print('  Status: READY and waiting for phone commands...');
+    print('  Press Ctrl+C to exit.');
+    print('=' * 60);
 
-  startUdpResponder(localIp);
+    startUdpResponder(localIp);
 
-  final server = await HttpServer.bind(InternetAddress.anyIPv4, httpPort);
+    final server = await HttpServer.bind(InternetAddress.anyIPv4, httpPort);
 
   await for (final request in server) {
     // Enable CORS
@@ -274,4 +275,17 @@ void main() async {
 
     await request.response.close();
   }
+} catch (e) {
+  print('\n[ERROR] Unable to start PC Receiver server: $e');
+  if (e.toString().contains('10048') || e.toString().contains('already in use')) {
+    print('\n>>> Port $httpPort is already being used!');
+    print('>>> An existing instance of pc_receiver.exe is likely already running in the background.');
+    print('>>> Please check Task Manager and end any running "pc_receiver.exe" processes.\n');
+  }
+  print('Press [Enter] to exit...');
+  try {
+    stdin.readLineSync();
+  } catch (_) {}
+  exit(1);
+}
 }
