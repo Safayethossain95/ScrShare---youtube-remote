@@ -198,6 +198,31 @@ class PCHostService {
             'success': result,
             'action': action,
           }));
+      } else if (path == '/mouse') {
+        request.response
+          ..headers.contentType = ContentType.json
+          ..statusCode = HttpStatus.ok
+          ..write(jsonEncode({'success': true}));
+      } else if (path == '/keyboard') {
+        String key = '';
+        if (request.method == 'POST') {
+          final content = await utf8.decoder.bind(request).join();
+          if (content.isNotEmpty) {
+            try {
+              final body = jsonDecode(content);
+              if (body is Map && body.containsKey('key')) {
+                key = body['key'].toString();
+              }
+            } catch (_) {}
+          }
+        }
+        if (key.isNotEmpty) {
+          await executeHostAction(key);
+        }
+        request.response
+          ..headers.contentType = ContentType.json
+          ..statusCode = HttpStatus.ok
+          ..write(jsonEncode({'success': true}));
       } else {
         request.response
           ..statusCode = HttpStatus.notFound
