@@ -82,9 +82,8 @@ void executeKeyAction(String action) {
       break;
     case 'back':
     case 'backspace':
-      sendKey = '{BACKSPACE}';
-      break;
     case 'escape':
+    case 'esc':
       sendKey = '{ESC}';
       break;
   }

@@ -380,9 +380,8 @@ Start-Sleep -Milliseconds 80;
         break;
       case 'back':
       case 'backspace':
-        keyToSend = '{BACKSPACE}';
-        break;
       case 'escape':
+      case 'esc':
         keyToSend = '{ESC}';
         break;
     }

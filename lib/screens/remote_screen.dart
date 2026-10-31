@@ -120,6 +120,9 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
     if (action == 'fullscreen' && kIsWeb) {
       toggleBrowserFullscreen();
     }
+    if ((_client.currentHost == null || !_client.isConnected) && kIsWeb) {
+      await _client.autoConnectLocalHost();
+    }
     await _client.sendAction(action);
   }
 

@@ -281,9 +281,10 @@ def execute_action(action):
                 'select': 0x0D,          # VK_RETURN (Enter / OK)
                 'enter': 0x0D,
                 'ok': 0x0D,
-                'back': 0x08,            # VK_BACK (Backspace)
-                'backspace': 0x08,
+                'back': 0x1B,            # VK_ESCAPE (Back button on remote emulates Esc)
+                'backspace': 0x1B,
                 'escape': 0x1B,          # VK_ESCAPE
+                'esc': 0x1B,
             }
 
             vk = vk_map.get(action_key)

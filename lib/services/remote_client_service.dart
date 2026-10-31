@@ -284,6 +284,9 @@ class RemoteClientService {
 
   /// Send navigation or playback action to the PC
   Future<bool> sendAction(String command) async {
+    if ((_currentHost == null || !_isConnected) && kIsWeb) {
+      await autoConnectLocalHost();
+    }
     if (_currentHost == null) return false;
 
     // Fast-path: Send over UDP immediately (<1ms latency)

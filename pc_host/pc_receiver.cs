@@ -35,60 +35,34 @@ namespace ScrShare
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-        [DllImport("uxtheme.dll", EntryPoint = "#135", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern int SetPreferredAppMode(int appMode);
-
         private const int SW_RESTORE = 9;
 
         [STAThread]
         static void Main(string[] args)
         {
-            try { SetPreferredAppMode(2); } catch { }
 
-            bool createdNew = true;
-            Mutex mutex = null;
             try
             {
-                mutex = new Mutex(true, "Local\\ScrShare_PC_Receiver_SingleInstance", out createdNew);
-            }
-            catch (AbandonedMutexException)
-            {
-                createdNew = true;
-            }
-            catch { }
-
-            if (!createdNew)
-            {
-                IntPtr hWnd = FindWindow(null, "ScrShare - PC Remote Receiver");
-                if (hWnd != IntPtr.Zero)
+                var current = Process.GetCurrentProcess();
+                var procs = Process.GetProcessesByName("pc_receiver");
+                foreach (var p in procs)
                 {
-                    ShowWindow(hWnd, SW_RESTORE);
-                    SetForegroundWindow(hWnd);
-                    return;
-                }
-
-                // If window not found, kill any stale background instances so the UI opens cleanly
-                try
-                {
-                    var current = Process.GetCurrentProcess();
-                    foreach (var p in Process.GetProcessesByName("pc_receiver"))
+                    if (p.Id != current.Id)
                     {
-                        if (p.Id != current.Id)
+                        if (p.MainWindowHandle != IntPtr.Zero)
                         {
-                            p.Kill();
-                            p.WaitForExit(1000);
+                            ShowWindow(p.MainWindowHandle, SW_RESTORE);
+                            SetForegroundWindow(p.MainWindowHandle);
+                            return;
+                        }
+                        else
+                        {
+                            try { p.Kill(); p.WaitForExit(1000); } catch { }
                         }
                     }
                 }
-                catch { }
-
-                try
-                {
-                    if (mutex != null) mutex.Dispose();
-                    mutex = new Mutex(true, "Local\\ScrShare_PC_Receiver_SingleInstance", out createdNew);
-                }
-                catch { }
             }
+            catch { }
 
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
@@ -135,14 +109,6 @@ namespace ScrShare
                 }
                 catch { }
                 MessageBox.Show(ex.ToString(), "ScrShare Receiver Crash", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                if (mutex != null)
-                {
-                    try { mutex.ReleaseMutex(); } catch { }
-                    mutex.Dispose();
-                }
             }
         }
     }
@@ -239,9 +205,6 @@ namespace ScrShare
 
         [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
         private static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
-
-        [DllImport("uxtheme.dll", EntryPoint = "#135", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern int SetPreferredAppMode(int appMode);
 
         [DllImport("dwmapi.dll")]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
@@ -906,12 +869,6 @@ namespace ScrShare
 
         private void ApplyScrollbarTheme(bool isDark)
         {
-            try
-            {
-                SetPreferredAppMode(isDark ? 2 : 3);
-            }
-            catch { }
-
             try
             {
                 if (_rtbLog != null && _rtbLog.IsHandleCreated)
@@ -1680,9 +1637,8 @@ namespace ScrShare
                     break;
                 case "back":
                 case "backspace":
-                    vk = 0x08; // VK_BACK
-                    break;
                 case "escape":
+                case "esc":
                     vk = 0x1B; // VK_ESCAPE
                     break;
             }
