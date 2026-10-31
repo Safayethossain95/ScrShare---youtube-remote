@@ -28,11 +28,6 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
   bool _isScanning = false;
   bool _isPlaying = false;
   bool _isMuted = false;
-  bool _hasActiveMedia = false;
-  double _currentPosition = 0.0;
-  double _totalDuration = 0.0;
-  bool _isDraggingSeek = false;
-  Timer? _mediaTickerTimer;
   List<HostInfo> _discoveredHosts = [];
   StreamSubscription? _connSub;
   late AnimationController _pulseController;
@@ -44,21 +39,6 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-
-    _mediaTickerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      if (_isPlaying && _hasActiveMedia && !_isDraggingSeek) {
-        setState(() {
-          _currentPosition = (_currentPosition + 1.0).clamp(0.0, _totalDuration);
-          if (_currentPosition >= _totalDuration && _totalDuration > 0) {
-            _isPlaying = false;
-          }
-        });
-      }
-      if (timer.tick % 3 == 0 && _client.isConnected) {
-        _syncMediaStatus();
-      }
-    });
 
     _initClientAndAutoScan();
   }
@@ -76,35 +56,8 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
   void dispose() {
     TopToast.hide();
     _pulseController.dispose();
-    _mediaTickerTimer?.cancel();
     _connSub?.cancel();
     super.dispose();
-  }
-
-  Future<void> _syncMediaStatus() async {
-    final status = await _client.getMediaStatus();
-    if (!mounted || status == null) return;
-    final active = status['active'] == true;
-    final playing = status['playing'] == true;
-    final pos = (status['position'] as num?)?.toDouble() ?? 0.0;
-    final dur = (status['duration'] as num?)?.toDouble() ?? 300.0;
-
-    if (active) {
-      setState(() {
-        _hasActiveMedia = true;
-        _isPlaying = playing;
-        if (!_isDraggingSeek) {
-          _currentPosition = pos;
-        }
-        if (dur > 0) {
-          _totalDuration = dur;
-        }
-      });
-    } else if (!_isPlaying) {
-      setState(() {
-        _hasActiveMedia = false;
-      });
-    }
   }
 
   void _showCustomSnackBar({
@@ -139,9 +92,6 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
     setState(() {
       _isLaunching = true;
       _isPlaying = true;
-      _hasActiveMedia = true;
-      _currentPosition = 0.0;
-      _totalDuration = 300.0;
     });
 
     final success = await _client.launchUrl(url: url);
@@ -186,10 +136,7 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
       return;
     }
     setState(() {
-      _hasActiveMedia = true;
       _isPlaying = true;
-      _currentPosition = 0.0;
-      _totalDuration = 300.0;
     });
     _showCustomSnackBar(
       message: 'Searching "$query" on TV',
@@ -1131,10 +1078,10 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
                 child: _buildRemoteIconButton(
                   icon: Icons.arrow_back_rounded,
                   color: AppTheme.primary,
-                  tooltip: 'Back (Backspace)',
+                  tooltip: 'Back (Esc)',
                   borderColor: surfaceBorderColor,
                   bgColor: surfaceLightColor,
-                  onPressed: () => _sendAction('back'),
+                  onPressed: () => _sendAction('escape'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1202,12 +1149,9 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
     final surfaceColor = isDark ? AppTheme.darkSurface : AppTheme.lightSurface;
     final surfaceBorderColor = isDark ? AppTheme.darkSurfaceBorder : AppTheme.lightSurfaceBorder;
     final textSecondaryColor = isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary;
-    final textPrimaryColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
-
-    final showSeekBar = (_hasActiveMedia || _isPlaying) && _totalDuration > 0;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: showSeekBar ? 16 : 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: surfaceColor,
         borderRadius: BorderRadius.circular(24),
@@ -1220,189 +1164,61 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          // Upper Seek Bar: Live seeking for the running video (hidden if no video playing)
-          if (showSeekBar) ...[
-            _buildLiveSeekBar(isDark, textPrimaryColor, textSecondaryColor),
-            const SizedBox(height: 12),
-          ],
-
-          // Playback & Volume Control Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildActionButton(
-                icon: Icons.volume_down_rounded,
-                tooltip: 'Volume -',
-                color: textSecondaryColor,
-                onPressed: () => _sendAction('volume_down'),
-              ),
-              _buildActionButton(
-                icon: Icons.volume_up_rounded,
-                tooltip: 'Volume +',
-                color: textSecondaryColor,
-                onPressed: () => _sendAction('volume_up'),
-              ),
-              Container(
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryGlow,
-                      blurRadius: 10,
-                    ),
-                  ],
+          _buildActionButton(
+            icon: Icons.volume_down_rounded,
+            tooltip: 'Volume -',
+            color: textSecondaryColor,
+            onPressed: () => _sendAction('volume_down'),
+          ),
+          _buildActionButton(
+            icon: Icons.volume_up_rounded,
+            tooltip: 'Volume +',
+            color: textSecondaryColor,
+            onPressed: () => _sendAction('volume_up'),
+          ),
+          Container(
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primary,
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryGlow,
+                  blurRadius: 10,
                 ),
-                child: IconButton(
-                  icon: Icon(
-                    _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                  tooltip: _isPlaying ? 'Pause (Space)' : 'Play (Space)',
-                  onPressed: () {
-                    setState(() {
-                      _isPlaying = !_isPlaying;
-                      if (_isPlaying && !_hasActiveMedia) {
-                        _hasActiveMedia = true;
-                        if (_totalDuration <= 0) _totalDuration = 300.0;
-                      }
-                    });
-                    _sendAction('play_pause');
-                  },
-                ),
+              ],
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 28,
               ),
-              _buildActionButton(
-                icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_mute_rounded,
-                tooltip: _isMuted ? 'Unmute (M)' : 'Mute (M)',
-                color: _isMuted ? AppTheme.primary : textSecondaryColor,
-                onPressed: () {
-                  setState(() {
-                    _isMuted = !_isMuted;
-                  });
-                  _sendAction('mute');
-                },
-              ),
-            ],
+              tooltip: _isPlaying ? 'Pause (Space)' : 'Play (Space)',
+              onPressed: () {
+                setState(() {
+                  _isPlaying = !_isPlaying;
+                });
+                _sendAction('play_pause');
+              },
+            ),
+          ),
+          _buildActionButton(
+            icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_mute_rounded,
+            tooltip: _isMuted ? 'Unmute (M)' : 'Mute (M)',
+            color: _isMuted ? AppTheme.primary : textSecondaryColor,
+            onPressed: () {
+              setState(() {
+                _isMuted = !_isMuted;
+              });
+              _sendAction('mute');
+            },
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildLiveSeekBar(bool isDark, Color textPrimaryColor, Color textSecondaryColor) {
-    final curPos = _currentPosition.clamp(0.0, _totalDuration);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isPlaying ? const Color(0xFF00E676) : textSecondaryColor,
-                      boxShadow: _isPlaying
-                          ? [
-                              const BoxShadow(
-                                color: Color(0xFF00E676),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    _formatDuration(curPos),
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimaryColor,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                _formatDuration(_totalDuration),
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: textSecondaryColor,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 2),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 4,
-            activeTrackColor: AppTheme.primary,
-            inactiveTrackColor: isDark
-                ? Colors.white.withValues(alpha: 0.12)
-                : Colors.black.withValues(alpha: 0.08),
-            thumbColor: Colors.white,
-            thumbShape: const RoundSliderThumbShape(
-              enabledThumbRadius: 7,
-              elevation: 4,
-              pressedElevation: 6,
-            ),
-            overlayColor: AppTheme.primary.withValues(alpha: 0.2),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-          ),
-          child: Slider(
-            value: curPos,
-            min: 0.0,
-            max: _totalDuration > 0 ? _totalDuration : 1.0,
-            onChangeStart: (val) {
-              _isDraggingSeek = true;
-            },
-            onChanged: (val) {
-              setState(() {
-                _currentPosition = val;
-              });
-            },
-            onChangeEnd: (val) {
-              _isDraggingSeek = false;
-              _onSeekVideo(val);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDuration(double seconds) {
-    final s = seconds.toInt();
-    final m = s ~/ 60;
-    final remainingS = s % 60;
-    final h = m ~/ 60;
-    final remainingM = m % 60;
-
-    if (h > 0) {
-      return '$h:${remainingM.toString().padLeft(2, '0')}:${remainingS.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${remainingS.toString().padLeft(2, '0')}';
-  }
-
-  void _onSeekVideo(double newPosition) {
-    HapticFeedback.selectionClick();
-    final ratio = _totalDuration > 0 ? (newPosition / _totalDuration).clamp(0.0, 1.0) : 0.0;
-    _client.seekMedia(ratio: ratio, position: newPosition);
   }
 
   // Quick launch channels placed below TV Remote Control
