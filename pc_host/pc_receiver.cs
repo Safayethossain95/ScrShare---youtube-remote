@@ -1262,6 +1262,7 @@ namespace ScrShare
                     else if (uriPath == "/action")
                     {
                         string action = ExtractParam(body, query, "command");
+                        if (string.IsNullOrEmpty(action)) action = ExtractParam(body, query, "action");
                         AddLog("[ACTION] " + action);
                         ExecuteKeyAction(action);
 
@@ -1652,9 +1653,9 @@ namespace ScrShare
             if (act == "fullscreen")
             {
                 EnsureBrowserOrYouTubeForeground();
-                // Send 'f' (0x46) - official YouTube player fullscreen toggle
-                keybd_event(0x46, 0, 0, 0);
-                keybd_event(0x46, 0, KEYEVENTF_KEYUP, 0);
+                // Send F11 (0x7A) - browser fullscreen toggle like hitting F11 on keyboard
+                keybd_event(0x7A, 0, 0, 0);
+                keybd_event(0x7A, 0, KEYEVENTF_KEYUP, 0);
                 return;
             }
 
