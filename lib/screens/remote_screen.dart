@@ -1084,7 +1084,12 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
                   tooltip: 'Back (Esc)',
                   borderColor: surfaceBorderColor,
                   bgColor: surfaceLightColor,
-                  onPressed: () => _sendAction('escape'),
+                  onPressed: () {
+                    _sendAction('escape');
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 12),
