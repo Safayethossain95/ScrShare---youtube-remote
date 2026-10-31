@@ -8,6 +8,7 @@ import '../services/network_discovery_service.dart';
 import '../services/remote_client_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/dpad_widget.dart';
+import '../widgets/top_toast.dart';
 
 class RemoteScreen extends StatefulWidget {
   final VoidCallback? onSwitchToHost;
@@ -52,6 +53,7 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
+    TopToast.hide();
     _pulseController.dispose();
     _connSub?.cancel();
     super.dispose();
@@ -62,39 +64,10 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
     required bool isSuccess,
   }) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF1E2230),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: isSuccess ? AppTheme.success : AppTheme.error,
-            width: 1.2,
-          ),
-        ),
-        content: Row(
-          children: [
-            Icon(
-              isSuccess ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-              color: isSuccess ? AppTheme.success : AppTheme.error,
-              size: 22,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    TopToast.show(
+      context,
+      message: message,
+      isSuccess: isSuccess,
     );
   }
 
@@ -103,7 +76,7 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
       await _scanForHosts();
       if (_client.currentHost == null) {
         _showCustomSnackBar(
-          message: 'Please start pc_server.py or pc_receiver.exe on your PC and tap Scan.',
+          message: 'PC receiver not found',
           isSuccess: false,
         );
         return;
@@ -124,12 +97,12 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
 
       if (success) {
         _showCustomSnackBar(
-          message: 'Launched $label on ${_client.currentHost!.name}!',
+          message: 'Launched $label',
           isSuccess: true,
         );
       } else {
         _showCustomSnackBar(
-          message: 'Could not reach ${_client.currentHost!.name}. Is the PC receiver running?',
+          message: 'Cannot reach PC',
           isSuccess: false,
         );
       }
@@ -171,13 +144,13 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
 
         if (!isSilent) {
           _showCustomSnackBar(
-            message: 'Connected to ${targetHost.name}!',
+            message: 'Connected: ${targetHost.name}',
             isSuccess: true,
           );
         }
       } else if (!isSilent) {
         _showCustomSnackBar(
-          message: 'No PC found. Please ensure the PC receiver is running.',
+          message: 'No PC found on Wi-Fi',
           isSuccess: false,
         );
       }
@@ -489,8 +462,8 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
               // 1. Connection Status Card
               _buildConnectionBanner(host, isConnected, isDark),
 
-              // 2. Discovered PCs Panel (if not connected)
-              if (!isConnected) ...[
+              // 2. Discovered PCs Panel (only show if hosts were found and not connected)
+              if (!isConnected && _discoveredHosts.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 _buildDiscoveryPanel(isDark),
               ],
@@ -664,185 +637,114 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
   }
 
   Widget _buildDiscoveryPanel(bool isDark) {
+    if (_discoveredHosts.isEmpty) return const SizedBox.shrink();
+
     final surfaceColor = isDark ? AppTheme.darkSurface : AppTheme.lightSurface;
     final surfaceLightColor = isDark ? AppTheme.darkSurfaceLight : AppTheme.lightSurfaceLight;
     final surfaceBorderColor = isDark ? AppTheme.darkSurfaceBorder : AppTheme.lightSurfaceBorder;
     final textPrimaryColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
-    final textSecondaryColor = isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary;
 
-    if (_discoveredHosts.isNotEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.devices_rounded, color: AppTheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Found Your PC! Tap to connect:',
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                    color: textPrimaryColor,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.devices_rounded, color: AppTheme.primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Found Your PC! Tap to connect:',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: textPrimaryColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ..._discoveredHosts.map((h) => Material(
+                color: surfaceLightColor,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: () {
+                    _client.selectHost(h);
+                    setState(() {});
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: surfaceBorderColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.computer_rounded, color: AppTheme.primary, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                h.name,
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: textPrimaryColor,
+                                ),
+                              ),
+                              Text(
+                                'Tap here to connect',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: AppTheme.success,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () {
+                            _client.selectHost(h);
+                            setState(() {});
+                          },
+                          child: const Text('Connect', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ..._discoveredHosts.map((h) => Material(
-                  color: surfaceLightColor,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    onTap: () {
-                      _client.selectHost(h);
-                      setState(() {});
-                    },
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: surfaceBorderColor),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.computer_rounded, color: AppTheme.primary, size: 24),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  h.name,
-                                  style: GoogleFonts.outfit(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 16,
-                                    color: textPrimaryColor,
-                                  ),
-                                ),
-                                Text(
-                                  'Tap here to connect',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: AppTheme.success,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onPressed: () {
-                              _client.selectHost(h);
-                              setState(() {});
-                            },
-                            child: const Text('Connect', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )),
-          ],
-        ),
-      );
-    } else {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: surfaceColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: surfaceBorderColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: surfaceLightColor,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.wifi_find_rounded, color: AppTheme.primary, size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Looking for your PC...',
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: textPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Ensure pc_receiver.exe or server is running',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: textSecondaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: surfaceLightColor,
-                foregroundColor: AppTheme.primary,
-                side: const BorderSide(color: AppTheme.primary, width: 1.2),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              icon: _isScanning
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
-                    )
-                  : const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Scan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-              onPressed: _isScanning ? null : () => _scanForHosts(),
-            ),
-          ],
-        ),
-      );
-    }
+              )),
+        ],
+      ),
+    );
   }
 
   Widget _buildHeroButton() {
