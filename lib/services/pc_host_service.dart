@@ -349,6 +349,8 @@ Start-Sleep -Milliseconds 80;
         keyToSend = '{F11}';
         break;
       case 'play_pause':
+      case 'pause':
+      case 'space':
         keyToSend = ' ';
         break;
       case 'mute':

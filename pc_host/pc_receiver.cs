@@ -1596,7 +1596,7 @@ namespace ScrShare
             if (string.IsNullOrEmpty(act)) return;
 
             DateTime now = DateTime.UtcNow;
-            if (act == "fullscreen" || act == "play_pause" || act == "space" || act == "mute" || act == "search" || act == "open_search")
+            if (act == "fullscreen" || act == "play_pause" || act == "pause" || act == "space" || act == "mute" || act == "search" || act == "open_search")
             {
                 DateTime last;
                 if (_lastActionTime.TryGetValue(act, out last) && (now - last).TotalMilliseconds < 350)
@@ -1634,19 +1634,12 @@ namespace ScrShare
                 return;
             }
 
-            if (act == "play_pause" || act == "space")
+            if (act == "play_pause" || act == "pause" || act == "space")
             {
-                _mediaPlaying = !_mediaPlaying;
-                _lastMediaTick = DateTime.UtcNow;
-
-                // 1. Hardware System Media Transport Controls (0xB3)
-                keybd_event(0xB3, 0, KEYEVENTF_EXTENDEDKEY, 0);
-                keybd_event(0xB3, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-
-                // 2. Also send 'k' (0x4B) to YouTube
                 EnsureBrowserOrYouTubeForeground();
-                keybd_event(0x4B, 0, 0, 0);
-                keybd_event(0x4B, 0, KEYEVENTF_KEYUP, 0);
+                // Send Spacebar key (VK_SPACE = 0x20)
+                keybd_event(0x20, 0, 0, 0);
+                keybd_event(0x20, 0, KEYEVENTF_KEYUP, 0);
                 return;
             }
 

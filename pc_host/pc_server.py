@@ -253,18 +253,11 @@ def execute_action(action):
                 return True
 
             # 2. Play / Pause
-            if action_key in ('play_pause', 'space'):
-                _media_playing = not _media_playing
-                _last_media_tick = time.time()
-
-                # Global System Media Transport Controls
-                user32.keybd_event(0xB3, 0, 1, 0)
-                user32.keybd_event(0xB3, 0, 1 | 2, 0)
-
-                # Also send 'k' (0x4B) to YouTube
+            if action_key in ('play_pause', 'pause', 'space'):
                 ensure_browser_foreground()
-                user32.keybd_event(0x4B, 0, 0, 0)
-                user32.keybd_event(0x4B, 0, 2, 0)
+                # Send Spacebar key (VK_SPACE = 0x20)
+                user32.keybd_event(0x20, 0, 0, 0)
+                user32.keybd_event(0x20, 0, 2, 0)
                 return True
 
             # 3. Fullscreen: Send F11 key (VK_F11 = 0x7A)
