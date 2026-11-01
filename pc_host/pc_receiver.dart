@@ -82,6 +82,8 @@ void executeKeyAction(String action) {
       break;
     case 'back':
     case 'backspace':
+      sendKey = '{BACKSPACE}';
+      break;
     case 'escape':
     case 'esc':
       sendKey = '{ESC}';
@@ -89,7 +91,7 @@ void executeKeyAction(String action) {
   }
 
   if (sendKey != null) {
-    final cmd = "\$wshell = New-Object -ComObject wscript.shell; \$activated = \$wshell.AppActivate('YouTube'); if (!\$activated) { \$wshell.AppActivate('Edge'); } \$wshell.SendKeys('$sendKey')";
+    final cmd = "\$wshell = New-Object -ComObject wscript.shell; \$activated = \$wshell.AppActivate('YouTube'); if (!\$activated) { \$activated = \$wshell.AppActivate('Chrome'); } if (!\$activated) { \$wshell.AppActivate('Edge'); } \$wshell.SendKeys('$sendKey')";
     Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd]);
   }
 }

@@ -104,18 +104,19 @@ class RemoteClientService {
     }
   }
 
-  /// Automatically connects to localhost (127.0.0.1:8080) if available
+  /// Automatically connects to localhost / host IP if available
   Future<bool> autoConnectLocalHost() async {
     try {
-      final uri = Uri.parse('http://127.0.0.1:8080/status');
-      final res = await http.get(uri).timeout(const Duration(milliseconds: 700));
+      final hostIp = (kIsWeb && Uri.base.host.isNotEmpty) ? Uri.base.host : '127.0.0.1';
+      final uri = Uri.parse('http://$hostIp:8080/status');
+      final res = await http.get(uri).timeout(const Duration(milliseconds: 1000));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final ip = data['ip'] ?? '127.0.0.1';
+        final ip = data['ip'] ?? hostIp;
         final port = data['port'] ?? 8080;
         final name = data['name'] ?? 'Local PC';
         final host = HostInfo(
-          ip: kIsWeb ? '127.0.0.1' : ip.toString(),
+          ip: kIsWeb ? hostIp : ip.toString(),
           port: port is int ? port : int.tryParse(port.toString()) ?? 8080,
           name: name.toString(),
           lastSeen: DateTime.now(),

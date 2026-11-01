@@ -123,7 +123,13 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
     if ((_client.currentHost == null || !_client.isConnected) && kIsWeb) {
       await _client.autoConnectLocalHost();
     }
-    await _client.sendAction(action);
+    final success = await _client.sendAction(action);
+    if (!success && mounted && (_client.currentHost == null || !_client.isConnected)) {
+      _showCustomSnackBar(
+        message: 'Cannot reach PC receiver. Please check receiver is running.',
+        isSuccess: false,
+      );
+    }
   }
 
   Future<void> _performSearch(String query) async {
@@ -1081,7 +1087,7 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
                 child: _buildRemoteIconButton(
                   icon: Icons.arrow_back_rounded,
                   color: AppTheme.primary,
-                  tooltip: 'Back (Esc)',
+                  tooltip: 'Back',
                   borderColor: surfaceBorderColor,
                   bgColor: surfaceLightColor,
                   onPressed: () => _sendAction('back'),

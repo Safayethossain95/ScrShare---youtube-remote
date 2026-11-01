@@ -121,6 +121,9 @@ namespace ScrShare
         private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
 
         [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
         private static extern bool AllowSetForegroundWindow(int dwProcessId);
 
         [DllImport("user32.dll")]
@@ -1501,6 +1504,9 @@ namespace ScrShare
         {
             try
             {
+                IntPtr currentFg = GetForegroundWindow();
+                if (currentFg == hWnd) return;
+
                 AllowSetForegroundWindow(-1);
                 keybd_event(0x12, 0, 0, 0); // Alt down to bypass Windows focus restriction
                 ShowWindow(hWnd, 9); // SW_RESTORE
@@ -1637,6 +1643,8 @@ namespace ScrShare
                     break;
                 case "back":
                 case "backspace":
+                    vk = 0x08; // VK_BACK (Backspace) - Native Back key for YouTube TV
+                    break;
                 case "escape":
                 case "esc":
                     vk = 0x1B; // VK_ESCAPE

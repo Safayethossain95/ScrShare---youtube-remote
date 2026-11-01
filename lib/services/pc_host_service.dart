@@ -380,6 +380,8 @@ Start-Sleep -Milliseconds 80;
         break;
       case 'back':
       case 'backspace':
+        keyToSend = '{BACKSPACE}';
+        break;
       case 'escape':
       case 'esc':
         keyToSend = '{ESC}';
@@ -390,7 +392,7 @@ Start-Sleep -Milliseconds 80;
 
     try {
       // PowerShell send keys via WScript.Shell
-      final command = "\$wshell = New-Object -ComObject wscript.shell; \$wshell.SendKeys('$keyToSend')";
+      final command = "\$wshell = New-Object -ComObject wscript.shell; \$activated = \$wshell.AppActivate('YouTube'); if (!\$activated) { \$activated = \$wshell.AppActivate('Chrome'); } if (!\$activated) { \$wshell.AppActivate('Edge'); } \$wshell.SendKeys('$keyToSend')";
       final result = await Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', command]);
       return result.exitCode == 0;
     } catch (_) {
