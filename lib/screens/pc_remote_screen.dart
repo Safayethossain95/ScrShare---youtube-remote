@@ -34,7 +34,7 @@ class _PcRemoteScreenState extends State<PcRemoteScreen> {
   int _fpsCount = 0;
   int _currentFps = 0;
   Timer? _fpsTimer;
-  Map<String, int>? _screenSize;
+
 
   // Trackpad Sensitivity & Dragging
   double _sensitivity = 1.35;
@@ -74,12 +74,7 @@ class _PcRemoteScreenState extends State<PcRemoteScreen> {
   }
 
   Future<void> _initPcRemote() async {
-    final info = await _remoteService.getScreenInfo();
-    if (mounted && info != null) {
-      setState(() {
-        _screenSize = info;
-      });
-    }
+    await _remoteService.getScreenInfo();
   }
 
   @override
@@ -383,40 +378,13 @@ class _PcRemoteScreenState extends State<PcRemoteScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  'PC Remote Controller',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: _remoteService.isConnected
-                        ? AppTheme.success.withValues(alpha: 0.15)
-                        : AppTheme.error.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _remoteService.isConnected
-                          ? AppTheme.success.withValues(alpha: 0.4)
-                          : AppTheme.error.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _remoteService.isConnected ? AppTheme.success : AppTheme.error,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              'PC Remote Controller',
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: textPrimaryColor,
+              ),
             ),
             if (host != null)
               Text(
@@ -430,17 +398,6 @@ class _PcRemoteScreenState extends State<PcRemoteScreen> {
           ],
         ),
         actions: [
-          // Mode Toggle Button (Trackpad vs Screen Mirror)
-          IconButton(
-            tooltip: _mode == PcRemoteMode.trackpad ? 'Switch to Screen Mirror' : 'Switch to Trackpad Mouse',
-            icon: Icon(
-              _mode == PcRemoteMode.trackpad ? Icons.desktop_windows_rounded : Icons.mouse_rounded,
-              color: _mode == PcRemoteMode.mirror ? const Color(0xFF00E676) : textPrimaryColor,
-            ),
-            onPressed: () {
-              _toggleMode(_mode == PcRemoteMode.trackpad ? PcRemoteMode.mirror : PcRemoteMode.trackpad);
-            },
-          ),
           // Keyboard Button
           IconButton(
             tooltip: 'Toggle Keyboard',
@@ -783,16 +740,6 @@ class _PcRemoteScreenState extends State<PcRemoteScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              if (_screenSize != null)
-                Text(
-                  '${_screenSize!['width']}×${_screenSize!['height']}',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: mutedColor,
-                  ),
-                ),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.fullscreen_rounded, size: 24),

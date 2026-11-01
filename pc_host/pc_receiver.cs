@@ -1649,6 +1649,11 @@ namespace ScrShare
                 case "esc":
                     vk = 0x1B; // VK_ESCAPE
                     break;
+                case "captions":
+                case "subtitles":
+                case "cc":
+                    vk = 0x43; // 'C' key toggles Captions in YouTube & YouTube TV
+                    break;
             }
 
             if (vk != 0)
@@ -1688,20 +1693,46 @@ namespace ScrShare
             try
             {
                 string q = (query ?? "").Trim();
-                if (string.IsNullOrEmpty(q)) return; // Do not open duplicate tab on empty search
-
                 EnsureBrowserOrYouTubeForeground();
 
-                // Send '/' (0xBF) to focus YouTube search bar, type query directly via SendUnicodeString, press Enter
-                Thread.Sleep(50);
-                keybd_event(0xBF, 0, 0, 0); // '/' key in YouTube
-                keybd_event(0xBF, 0, KEYEVENTF_KEYUP, 0);
-                Thread.Sleep(70);
+                // 1. Backspace to exit video playback if playing, or dismiss overlays
+                keybd_event(0x08, 0, 0, 0); // VK_BACK
+                keybd_event(0x08, 0, KEYEVENTF_KEYUP, 0);
+                Thread.Sleep(150);
 
+                // 2. Left arrow to move focus to left navigation sidebar
+                keybd_event(0x25, 0, KEYEVENTF_EXTENDEDKEY, 0); // VK_LEFT
+                keybd_event(0x25, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+                Thread.Sleep(80);
+
+                // 3. Up arrow multiple times to reach the topmost Search icon (magnifying glass)
+                for (int i = 0; i < 6; i++)
+                {
+                    keybd_event(0x26, 0, KEYEVENTF_EXTENDEDKEY, 0); // VK_UP
+                    keybd_event(0x26, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
+                    Thread.Sleep(30);
+                }
+                Thread.Sleep(80);
+
+                // 4. Enter to select Search icon and open the YouTube TV search interface
+                keybd_event(0x0D, 0, 0, 0); // VK_RETURN
+                keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0);
+
+                if (string.IsNullOrEmpty(q))
+                {
+                    AddLog("[SEARCH] Opened YouTube TV search page");
+                    return;
+                }
+
+                // 5. Wait for YouTube TV search screen to open and focus input
+                Thread.Sleep(450);
+
+                // 6. Type the query directly into the search input
                 SendUnicodeString(q);
-                Thread.Sleep(50);
+                Thread.Sleep(150);
 
-                keybd_event(0x0D, 0, 0, 0); // Enter
+                // 7. Enter to execute search
+                keybd_event(0x0D, 0, 0, 0); // VK_RETURN
                 keybd_event(0x0D, 0, KEYEVENTF_KEYUP, 0);
 
                 AddLog("[SEARCH] Typed query directly into YouTube search: " + q);

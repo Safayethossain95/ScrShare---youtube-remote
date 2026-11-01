@@ -88,6 +88,11 @@ void executeKeyAction(String action) {
     case 'esc':
       sendKey = '{ESC}';
       break;
+    case 'captions':
+    case 'subtitles':
+    case 'cc':
+      sendKey = 'c';
+      break;
   }
 
   if (sendKey != null) {
@@ -98,9 +103,7 @@ void executeKeyAction(String action) {
 
 void executeSearch(String query) async {
   final q = query.trim();
-  if (q.isEmpty) return;
-  print('[SEARCH] Searching on current YouTube TV window: $q');
-
+  print('[SEARCH] Opening YouTube TV search: $q');
   if (!Platform.isWindows) return;
 
   final escaped = q.replaceAllMapped(RegExp(r'[+^%~(){}[\]]'), (m) => '{${m[0]}}');
@@ -111,11 +114,19 @@ void executeSearch(String query) async {
 if (!\$activated) { \$activated = \$wshell.AppActivate('Edge'); }
 if (!\$activated) { \$activated = \$wshell.AppActivate('Chrome'); }
 Start-Sleep -Milliseconds 60;
-\$wshell.SendKeys('/');
-Start-Sleep -Milliseconds 120;
-\$wshell.SendKeys('$escaped');
+\$wshell.SendKeys('{BACKSPACE}');
+Start-Sleep -Milliseconds 150;
+\$wshell.SendKeys('{LEFT}');
+Start-Sleep -Milliseconds 80;
+1..6 | ForEach-Object { \$wshell.SendKeys('{UP}'); Start-Sleep -Milliseconds 30; }
 Start-Sleep -Milliseconds 80;
 \$wshell.SendKeys('{ENTER}');
+${q.isNotEmpty ? '''
+Start-Sleep -Milliseconds 450;
+\$wshell.SendKeys('$escaped');
+Start-Sleep -Milliseconds 150;
+\$wshell.SendKeys('{ENTER}');
+''' : ''}
 ''';
 
   await Process.run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script]);

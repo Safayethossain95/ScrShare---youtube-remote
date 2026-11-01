@@ -313,7 +313,6 @@ class PCHostService {
   /// Searches query on the currently active YouTube TV window
   Future<bool> executeHostSearch(String query) async {
     final q = query.trim();
-    if (q.isEmpty) return true;
     if (!Platform.isWindows) return true;
 
     final escaped = q.replaceAllMapped(RegExp(r'[+^%~(){}[\]]'), (m) => '{${m[0]}}');
@@ -324,11 +323,19 @@ class PCHostService {
 if (!\$activated) { \$activated = \$wshell.AppActivate('Edge'); }
 if (!\$activated) { \$activated = \$wshell.AppActivate('Chrome'); }
 Start-Sleep -Milliseconds 60;
-\$wshell.SendKeys('/');
-Start-Sleep -Milliseconds 120;
-\$wshell.SendKeys('$escaped');
+\$wshell.SendKeys('{BACKSPACE}');
+Start-Sleep -Milliseconds 150;
+\$wshell.SendKeys('{LEFT}');
+Start-Sleep -Milliseconds 80;
+1..6 | ForEach-Object { \$wshell.SendKeys('{UP}'); Start-Sleep -Milliseconds 30; }
 Start-Sleep -Milliseconds 80;
 \$wshell.SendKeys('{ENTER}');
+${q.isNotEmpty ? '''
+Start-Sleep -Milliseconds 450;
+\$wshell.SendKeys('$escaped');
+Start-Sleep -Milliseconds 150;
+\$wshell.SendKeys('{ENTER}');
+''' : ''}
 ''';
 
     try {
@@ -385,6 +392,11 @@ Start-Sleep -Milliseconds 80;
       case 'escape':
       case 'esc':
         keyToSend = '{ESC}';
+        break;
+      case 'captions':
+      case 'subtitles':
+      case 'cc':
+        keyToSend = 'c';
         break;
     }
 

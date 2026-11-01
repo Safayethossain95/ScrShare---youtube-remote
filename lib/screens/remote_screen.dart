@@ -28,6 +28,7 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
   bool _isScanning = false;
   bool _isPlaying = false;
   bool _isMuted = false;
+  bool _isCaptionsOn = false;
   List<HostInfo> _discoveredHosts = [];
   StreamSubscription? _connSub;
   late AnimationController _pulseController;
@@ -132,176 +133,7 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
     }
   }
 
-  Future<void> _performSearch(String query) async {
-    HapticFeedback.mediumImpact();
-    if (_client.currentHost == null || !_client.isConnected) {
-      await _client.autoConnectLocalHost();
-    }
-    if (_client.currentHost == null) {
-      _showCustomSnackBar(
-        message: 'Please connect to a PC first',
-        isSuccess: false,
-      );
-      return;
-    }
-    setState(() {
-      _isPlaying = true;
-    });
-    _showCustomSnackBar(
-      message: 'Searching "$query" on TV',
-      isSuccess: true,
-    );
-    await _client.searchYouTube(query);
-  }
 
-  void _openSearchModal(bool isDark) {
-
-    final surfaceColor = isDark ? AppTheme.darkSurface : AppTheme.lightSurface;
-    final surfaceLightColor = isDark ? AppTheme.darkSurfaceLight : AppTheme.lightSurfaceLight;
-    final borderColor = isDark ? AppTheme.darkSurfaceBorder : AppTheme.lightSurfaceBorder;
-    final textPrimaryColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
-    final textSecondaryColor = isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary;
-
-    final textController = TextEditingController();
-    final focusNode = FocusNode();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            decoration: BoxDecoration(
-              color: surfaceColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border(top: BorderSide(color: borderColor, width: 1.5)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, -4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: textSecondaryColor.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00E676).withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.search_rounded,
-                        size: 20,
-                        color: Color(0xFF00E676),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Search YouTube TV',
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: textPrimaryColor,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, size: 20, color: textSecondaryColor),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    color: surfaceLightColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor, width: 1.5),
-                  ),
-                  child: TextField(
-                    controller: textController,
-                    focusNode: focusNode,
-                    autofocus: true,
-                    textInputAction: TextInputAction.search,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      color: textPrimaryColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Type to search on TV...',
-                      hintStyle: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: textSecondaryColor,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        color: textSecondaryColor,
-                        size: 22,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.arrow_forward_rounded, color: AppTheme.primary),
-                        tooltip: 'Search',
-                        onPressed: () {
-                          final query = textController.text.trim();
-                          if (query.isNotEmpty) {
-                            Navigator.of(ctx).pop();
-                            _performSearch(query);
-                          }
-                        },
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    onSubmitted: (query) {
-                      final trimmed = query.trim();
-                      if (trimmed.isNotEmpty) {
-                        Navigator.of(ctx).pop();
-                        _performSearch(trimmed);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Press Enter on keyboard to search instantly on YouTube TV',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    color: textSecondaryColor,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Future<void> _scanForHosts({bool isSilent = false, bool showPicker = true}) async {
     if (_isScanning) return;
@@ -1096,17 +928,6 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
               const SizedBox(width: 12),
               Expanded(
                 child: _buildRemoteIconButton(
-                  icon: Icons.search_rounded,
-                  color: const Color(0xFF00E676),
-                  tooltip: 'Search YouTube TV',
-                  borderColor: surfaceBorderColor,
-                  bgColor: surfaceLightColor,
-                  onPressed: () => _openSearchModal(isDark),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildRemoteIconButton(
                   icon: Icons.fullscreen_rounded,
                   color: AppTheme.accent,
                   tooltip: 'Fullscreen (F11)',
@@ -1223,6 +1044,17 @@ class _RemoteScreenState extends State<RemoteScreen> with SingleTickerProviderSt
                 _isMuted = !_isMuted;
               });
               _sendAction('mute');
+            },
+          ),
+          _buildActionButton(
+            icon: _isCaptionsOn ? Icons.closed_caption_rounded : Icons.closed_caption_outlined,
+            tooltip: _isCaptionsOn ? 'Captions Off (C)' : 'Captions (C)',
+            color: _isCaptionsOn ? AppTheme.primary : textSecondaryColor,
+            onPressed: () {
+              setState(() {
+                _isCaptionsOn = !_isCaptionsOn;
+              });
+              _sendAction('captions');
             },
           ),
         ],
